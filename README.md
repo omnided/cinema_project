@@ -1,83 +1,328 @@
-#  TypeORM / Express / TypeScript RESTful API boilerplate
+# Документация API: Управление фильмами, видео и авторизацией
 
-[![CI][build-badge]][build-url]
-[![TypeScript][typescript-badge]][typescript-url]
-[![prettier][prettier-badge]][prettier-url]
-![Heisenberg](misc/heisenberg.png)
+В данном документе описаны эндпоинты, их параметры, ожидаемые тела запросов и поведение контроллеров на основе предоставленной конфигурации маршрутизаторов (routers).
 
-Boilerplate with focus on best practices and painless developer experience:
+---
 
-- Minimal setup that can be extended 🔧
-- Spin it up with single command 🌀
-- TypeScript first
-- RESTful APIs
-- JWT authentication with role based authorization
+## 1. Авторизация (AuthController)
 
-## Requirements
+Отвечает за регистрацию, вход и управление сессиями. Во всех успешных ответах контроллер устанавливает `httpOnly` cookie `refresh_token` сроком на 7 дней.
 
-- [Node v16+](https://nodejs.org/)
-- [Docker](https://www.docker.com/)
+### Вход пользователя
 
-## Running
+- **Маршрут:** `POST /login`
+- **Контроллер:** `userController.login`
+- **Описание:** Проверяет учетные данные и авторизует пользователя.
 
-_Easily set up a local development environment with single command!_
+**Тело запроса (JSON):**
 
-- clone the repo
-- `npm run docker:dev` 🚀
+```json
+{
+  "email": "user@example.com",
+  "password": "securepassword"
+}
+```
 
-Visit [localhost:4000](http://localhost:4000/) or if using Postman grab [config](/postman).
+**Ответы:**
 
-### _What happened_ 💥
+| Код               | Описание                                                 |
+| ----------------- | -------------------------------------------------------- |
+| `201 Created`     | Успешный вход (возвращает данные пользователя и токены). |
+| `400 Bad Request` | Отсутствует `email` или `password`.                      |
 
-Containers created:
+### Регистрация пользователя
 
-- Postgres database container seeded with 💊 Breaking Bad characters in `Users` table (default credentials `user=walter`, `password=white` in [.env file](./.env))
-- Node (v16 Alpine) container with running boilerplate RESTful API service
-- and one Node container instance to run tests locally or in CI
+- **Маршрут:** `POST /register`
+- **Контроллер:** `userController.register`
+- **Описание:** Создает нового пользователя и автоматически авторизует его.
 
-## Features:
+**Тело запроса (JSON):**
 
-- [Express](https://github.com/expressjs/express) framework
-- [TypeScript v4](https://github.com/microsoft/TypeScript) codebase
-- [TypeORM](https://typeorm.io/) using Data Mapper pattern
-- [Docker](https://www.docker.com/) environment:
-  - Easily start local development using [Docker Compose](https://docs.docker.com/compose/) with single command `npm run docker:dev`
-  - Connect to different staging or production environments `npm run docker:[stage|prod]`
-  - Ready for **microservices** development and deployment.  
-    Once API changes are made, just build and push new docker image with your favourite CI/CD tool  
-    `docker build -t <username>/api-boilerplate:latest .`  
-    `docker push <username>/api-boilerplate:latest`
-  - Run unit, integration (or setup with your frontend E2E) tests as `docker exec -ti be_boilerplate_test sh` and `npm run test`
-- Contract first REST API design:
-  - never break API again with HTTP responses and requests payloads using [type definitions](./src/types/express/index.d.ts)
-  - Consistent schema error [response](./src/utils/response/custom-error/types.ts). Your frontend will always know how to handle errors thrown in `try...catch` statements 💪
-- JWT authentication and role based authorization using custom middleware
-- Set local, stage or production [environmental variables](./config) with [type definitions](./src/types/ProcessEnv.d.ts)
-- Logging with [morgan](https://github.com/expressjs/morgan)
-- Unit and integration tests with [Mocha](https://mochajs.org/) and [Chai](https://www.chaijs.com/)
-- Linting with [ESLint](https://eslint.org/)
-- [Prettier](https://prettier.io/) code formatter
-- Git hooks with [Husky](https://github.com/typicode/husky) and [lint-staged](https://github.com/okonet/lint-staged)
-- Automated npm & Docker dependency updates with [Renovate](https://github.com/renovatebot/renovate) (set to patch version only)
-- Commit messages must meet [conventional commits](https://www.conventionalcommits.org/en/v1.0.0/) format.  
-  After staging changes just run `npm run commit` and get instant feedback on your commit message formatting and be prompted for required fields by [Commitizen](https://github.com/commitizen/cz-cli)
+```json
+{
+  "name": "Имя",
+  "email": "user@example.com",
+  "password": "securepassword",
+  "role": "user"
+}
+```
 
-## Other awesome boilerplates:
+**Ответы:**
 
-Each boilerplate comes with it's own flavor of libraries and setup, check out others:
+| Код               | Описание                            |
+| ----------------- | ----------------------------------- |
+| `201 Created`     | Пользователь зарегистрирован.       |
+| `400 Bad Request` | Не заполнены все обязательные поля. |
 
-- [Express and TypeORM with TypeScript](https://github.com/typeorm/typescript-express-example)
-- [Node.js, Express.js & TypeScript Boilerplate for Web Apps](https://github.com/jverhoelen/node-express-typescript-boilerplate)
-- [Express boilerplate for building RESTful APIs](https://github.com/danielfsousa/express-rest-es2017-boilerplate)
-- [A delightful way to building a RESTful API with NodeJs & TypeScript by @w3tecch](https://github.com/w3tecch/express-typescript-boilerplate)
+### Обновление токена доступа
 
-[build-badge]: https://github.com/mkosir/express-typescript-typeorm-boilerplate/actions/workflows/main.yml/badge.svg
-[build-url]: https://github.com/mkosir/express-typescript-typeorm-boilerplate/actions/workflows/main.yml
-[typescript-badge]: https://badges.frapsoft.com/typescript/code/typescript.svg?v=101
-[typescript-url]: https://github.com/microsoft/TypeScript
-[prettier-badge]: https://img.shields.io/badge/code_style-prettier-ff69b4.svg
-[prettier-url]: https://github.com/prettier/prettier
+- **Маршрут:** `POST /refresh-token`
+- **Контроллер:** `userController.refreshToken`
+- **Описание:** Генерирует новый `accessToken` на основе существующего `refresh_token`.
+- **Заголовки/Cookies:** Ожидается наличие cookie `refresh_token`.
 
-## Contributing
+**Ответы:**
 
-All contributions are welcome!
+| Код                | Описание                                           |
+| ------------------ | -------------------------------------------------- |
+| `200 OK`           | Токен успешно обновлен (возвращает `accessToken`). |
+| `401 Unauthorized` | Refresh token не предоставлен.                     |
+
+---
+
+## 2. Обработка видео (VideoController)
+
+Отвечает за взаимодействие с FFmpeg и загрузку медиафайлов.
+
+### Процессинг видеофайла
+
+- **Маршрут:** `POST /process/:videoId`
+- **Контроллер:** `videoController.VideoFfmpeg`
+- **Описание:** Принимает путь к сырому файлу и запускает его обработку для указанного видео.
+
+**Параметры пути:**
+
+| Параметр  | Тип      | Описание             |
+| --------- | -------- | -------------------- |
+| `videoId` | `number` | Идентификатор видео. |
+
+**Тело запроса (JSON):**
+
+```json
+{
+  "rawFilePath": "/paths/to/video/file.mp4"
+}
+```
+
+**Ответы:**
+
+| Код               | Описание                                      |
+| ----------------- | --------------------------------------------- |
+| `200 OK`          | Видео успешно обработано и загружено.         |
+| `400 Bad Request` | Ошибка валидации (отсутствует `rawFilePath`). |
+
+---
+
+## 3. Управление фильмами (MovieController)
+
+CRUD-операции для работы с каталогом фильмов.
+
+> ⚠️ **Внимание:** В предоставленном коде маршрутизатора (Router) для фильмов указаны пути `/process/:videoId`, которые переопределяют друг друга и конфликтуют с логикой контроллера (контроллер ожидает параметр `:id`, а не `:videoId`, и стандартные пути REST). Ниже задокументировано фактическое поведение контроллеров и DTO.
+
+### Создание нового фильма
+
+- **Маршрут (из роутера):** `POST /process/:videoId`
+- **Контроллер:** `movieController.createMovie`
+- **Middleware:** `checkJwt` (требуется авторизация).
+
+**Тело запроса (`CreateMovieDto`):**
+
+```json
+{
+  "genres": [1, 2, 3],
+  "title": "Название фильма",
+  "description": "Описание фильма",
+  "video_url": "https://link.to/video.mp4",
+  "country": "США",
+  "release_date": "2026-10-15T00:00:00.000Z",
+  "duration_seconds": 5400,
+  "poster_url": "https://link.to/poster.jpg"
+}
+```
+
+> Поля `country`, `release_date`, `duration_seconds` и `poster_url` — необязательные.
+
+**Ответы:**
+
+| Код           | Описание              |
+| ------------- | --------------------- |
+| `201 Created` | Фильм успешно создан. |
+
+### Получение фильма по ID
+
+- **Маршрут (из роутера):** `GET /process/:videoId`
+- **Контроллер:** `movieController.findMovieById`
+- **Параметры пути:** Контроллер ожидает параметр `id` (`req.params.id`).
+
+**Ответы:**
+
+| Код      | Описание                        |
+| -------- | ------------------------------- |
+| `200 OK` | Данные фильма успешно получены. |
+
+### Получение списка всех фильмов
+
+- **Маршрут (из роутера):** `GET /process/:videoId`
+- **Контроллер:** `movieController.findAllMovies`
+
+**Ответы:**
+
+| Код      | Описание                                       |
+| -------- | ---------------------------------------------- |
+| `200 OK` | Возвращает массив всех фильмов из базы данных. |
+
+### Обновление фильма
+
+_(Метод доступен в контроллере)_
+
+- **Контроллер:** `movieController.updateMovie`
+- **Описание:** Частичное обновление данных существующего фильма.
+- **Параметры пути:** Контроллер ожидает параметр `id` (`req.params.id`).
+- **Тело запроса (`UpdateMovieDto`):** Любые поля из `CreateMovieDto` (все поля опциональны).
+
+**Ответы:**
+
+| Код      | Описание                |
+| -------- | ----------------------- |
+| `200 OK` | Фильм успешно обновлен. |
+
+---
+
+## 4. Сервисный слой
+
+### 4.1. Сервис пользователей (UserService)
+
+Содержит бизнес-логику регистрации, входа и обновления токенов. Работает с репозиторием `Users`, хеширует пароли через `bcrypt` (10 раундов соли) и выпускает JWT через `createJwtToken` (access) и `createRefJwtToken` (refresh). Полезная нагрузка токенов формируется методом `buildJwtPayload(user)`.
+
+#### `register(email, username, plainPassword, role)`
+
+Создает нового пользователя.
+
+**Параметры:**
+
+| Параметр        | Тип      | Описание                                              |
+| --------------- | -------- | ----------------------------------------------------- |
+| `email`         | `string` | Email пользователя (должен быть уникальным).          |
+| `username`      | `string` | Имя пользователя.                                     |
+| `plainPassword` | `string` | Пароль в открытом виде (в БД сохраняется только хеш). |
+| `role`          | `string` | Роль: `user` или `admin`.                             |
+
+**Алгоритм:**
+
+1. Ищет пользователя с таким `email`. Если он найден, выбрасывает `Error('Пользователь с таким email уже существует')`.
+2. Создает сущность `Users` и записывает `username`, `email` и `role`.
+3. Хеширует пароль: `bcrypt.hash(plainPassword, 10)` → `password_hash`.
+4. Сохраняет пользователя в БД.
+5. Формирует `JwtPayload` и генерирует `token` (access) и `refresh_token`.
+6. Возвращает объект без поля `password_hash`.
+
+**Возвращает:**
+
+```json
+{
+  "user": { "id": 1, "username": "Имя", "email": "user@example.com", "role": "user" },
+  "token": "<access JWT>",
+  "refresh_token": "<refresh JWT>"
+}
+```
+
+#### `login(email, plainPasswordFromUser)`
+
+Проверяет учетные данные и выдает токены.
+
+**Алгоритм:**
+
+1. Ищет пользователя по `email`. Если он не найден, выбрасывает `Error('Пользователь не найден')`.
+2. Сравнивает пароль с хешем через `bcrypt.compare`. При несовпадении выбрасывает `Error('Неверный логин или пароль')`.
+3. Формирует `JwtPayload` и генерирует `token` и `refresh_token`.
+4. Возвращает пользователя без `password_hash` и пару токенов (формат ответа такой же, как у `register`).
+
+#### `updateRefreshToken(RefreshToken)`
+
+Реализует ротацию refresh-токена: старый токен заменяется новым.
+
+**Параметры:**
+
+| Параметр       | Тип      | Описание                            |
+| -------------- | -------- | ----------------------------------- |
+| `RefreshToken` | `string` | Текущий refresh-токен пользователя. |
+
+**Алгоритм:**
+
+1. Проверяет подпись и срок действия через `jwt.verify` с секретом `REFJWT_SECRET`. При ошибке выбрасывает `CustomError(401, 'Unauthorized', 'Refresh токен протух или недействителен...')`.
+2. Ищет пользователя, у которого в БД сохранен именно этот `refresh_token`. Если не находит, выбрасывает `CustomError(401, 'Unauthorized', 'Токен не найден в базе...')`.
+3. Генерирует новую пару токенов.
+4. Сохраняет новый `refresh_token` в БД (старый перестает работать).
+
+**Возвращает:**
+
+```json
+{
+  "accessToken": "<новый access JWT>",
+  "refreshToken": "<новый refresh JWT>"
+}
+```
+
+**Ошибки:**
+
+| Ошибка            | Причина                                                       |
+| ----------------- | ------------------------------------------------------------- |
+| `CustomError 401` | Токен недействителен, просрочен, отозван или уже использован. |
+
+---
+
+### 4.2. Сервис видео (VideoService)
+
+Отвечает за конвейер обработки видео: нарезку в формат HLS через FFmpeg, публикацию и обновление ссылки на видео у фильма.
+
+#### `processAndUploadMovie(movieId, rawFilePath)`
+
+Главный метод конвейера. Вызывается из `videoController.VideoFfmpeg`.
+
+**Параметры:**
+
+| Параметр      | Тип      | Описание                              |
+| ------------- | -------- | ------------------------------------- |
+| `movieId`     | `number` | Идентификатор фильма.                 |
+| `rawFilePath` | `string` | Путь к исходному (сырому) видеофайлу. |
+
+**Алгоритм:**
+
+1. Формирует временную директорию `tmp/hls/<movieId>` и создает ее, если она отсутствует.
+2. Вызывает `convertToHls`, чтобы нарезать видео на HLS-сегменты.
+3. Формирует ссылку на плейлист: `http://localhost:4000/movies/<movieId>/playlist.m3u8`.
+4. Записывает ссылку в поле `video_url` фильма (`movieRepository.update`).
+5. В блоке `finally` удаляет исходный файл `rawFilePath` (даже при ошибке).
+
+**Возвращает:** `string` — URL плейлиста `playlist.m3u8`.
+
+**Ошибки:** любая ошибка нарезки или обновления БД логируется в консоль и пробрасывается дальше.
+
+> ⚠️ **Текущее состояние:** загрузка в S3 (`uploadDirectoryToS3`) закомментирована, вместо нее используется заглушка с `localhost:4000`. Очистка временной папки HLS (`hlsOutputDir`) также закомментирована, поэтому сегменты остаются на диске.
+
+#### `convertToHls(inputPath, outputDir)` (private)
+
+Конвертирует видео в HLS с помощью `fluent-ffmpeg`.
+
+**Параметры кодирования:**
+
+| Параметр         | Значение   | Назначение                                  |
+| ---------------- | ---------- | ------------------------------------------- |
+| Видеокодек       | `libx264`  | H.264.                                      |
+| Аудиокодек       | `aac`      | AAC.                                        |
+| `-profile:v`     | `baseline` | Максимальная совместимость с устройствами.  |
+| `-level`         | `3.0`      | Уровень профиля H.264.                      |
+| `-start_number`  | `0`        | Нумерация сегментов с нуля.                 |
+| `-hls_time`      | `10`       | Длительность одного сегмента (сек).         |
+| `-hls_list_size` | `0`        | Все сегменты сохраняются в плейлисте (VOD). |
+| `-f`             | `hls`      | Формат вывода.                              |
+
+**Результат:** в `outputDir` создаются `playlist.m3u8` и файлы `.ts`-сегментов. Возвращает `Promise<void>`, который завершается по событию `end` и отклоняется по событию `error`.
+
+---
+
+### 4.3. Замечания к текущей реализации
+
+- **Хранение refresh-токена.** `updateRefreshToken` ищет токен в БД, но `register` и `login` его не сохраняют. Если токен не записывается в контроллере, обновление всегда будет возвращать `401`.
+- **Тип ошибок.** `register` и `login` выбрасывают обычный `Error`, а не `CustomError`, поэтому клиент получит `500` вместо `409` или `401`.
+- **Поле имени.** В документации эндпоинта `/register` указано `name`, а сервис принимает `username`. Названия нужно привести в соответствие.
+- **Роль от клиента.** `register` принимает `role` из тела запроса, поэтому любой пользователь может зарегистрироваться как `admin`.
+- **Сообщения о входе.** Разные тексты для «пользователь не найден» и «неверный пароль» позволяют определить, зарегистрирован ли email. Лучше использовать одно общее сообщение.
+
+## Глобальная обработка ошибок
+
+Во всех контроллерах используется обертка `try/catch`.
+
+В случае ошибки (включая кастомную ошибку `CustomError`), выброшенное исключение передается в функцию `next(error)` для централизованной обработки на уровне Express.
+
+Успешные запросы возвращают структурированный ответ через метод `res.customSuccess(statusCode, message, data)`.

@@ -9,5 +9,7 @@ declare namespace NodeJS {
     POSTGRES_DB: string;
     JWT_SECRET: string;
     JWT_EXPIRATION: string;
+    REFJWT_SECRET: string;
+    JWT_REFRESH_EXPIRATION: string;
   }
 }

@@ -4,6 +4,7 @@ import fs from 'fs';
 import path from 'path';
 
 import bodyParser from 'body-parser';
+import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import express from 'express';
 import helmet from 'helmet';
@@ -11,7 +12,6 @@ import morgan from 'morgan';
 
 import './utils/response/customSuccess';
 import { errorHandler } from './middleware/errorHandler';
-import { getLanguage } from './middleware/getLanguage';
 import { dbCreateConnection } from './orm/dbCreateConnection';
 import routes from './routes';
 
@@ -20,7 +20,8 @@ app.use(cors());
 app.use(helmet());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
-app.use(getLanguage);
+app.use('/movies', express.static(path.join(__dirname, '../tmp/hls')));
+app.use(cookieParser());
 
 try {
   const accessLogStream = fs.createWriteStream(path.join(__dirname, '../log/access.log'), {
@@ -30,6 +31,7 @@ try {
 } catch (err) {
   console.log(err);
 }
+
 app.use(morgan('combined'));
 
 app.use('/', routes);

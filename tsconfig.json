@@ -15,6 +15,7 @@
     "typeRoots": ["./src/types", "./node_modules/@types"],
     "baseUrl": "src/",
     "noImplicitReturns": true,
+    "strictPropertyInitialization": false,
     "noFallthroughCasesInSwitch": true
   },
   "include": ["./src/**/*.tsx", "./src/**/*.ts"],

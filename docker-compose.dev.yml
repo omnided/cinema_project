@@ -3,25 +3,56 @@ version: '3'
 services:
   db_postgres:
     container_name: 'db_boilerplate'
-    image: 'postgres:14.2-alpine'
+    image: 'postgres:18-alpine'
     restart: always
     env_file:
       - .env
     ports:
       - '5433:5432'
     volumes:
-      - ./database/boilerplate:/var/lib/postgresql/data/
+      - postgres_data:/var/lib/postgresql/data
+      # Монтируем ваш файл с бэкапом в специальную папку автозапуска:
+      - ./database.sql:/docker-entrypoint-initdb.d/database.sql
 
   be_boilerplate:
+    build:
+      context: .
+      target: build
     entrypoint: /bin/sh './scripts/be-node-dev.sh'
     env_file:
       - .env
     ports:
-      - '4000:4000'
+      - '8080:4000'
     depends_on:
       - db_postgres
     links:
       - db_postgres
+    develop:
+      watch:
+        - action: rebuild
+          path: package.json
+
+        - action: sync
+          path: ./src
+          target: /usr/src/app/src
+
+        - action: sync
+          path: ./
+          target: /usr/src/app
+          ignore:
+            - node_modules/
+
+  minio:
+    image: minio/minio:latest
+    container_name: minio_storage
+    ports:
+      - '9000:9000' # Порт API
+      - '9001:9001' # Порт веб-консоли
+    env_file:
+      - .env
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
 
   be_boilerplate_test:
     container_name: 'be_boilerplate_test'
@@ -38,3 +69,7 @@ services:
     volumes:
       - .:/app/
       - /app/node_modules
+
+volumes:
+  postgres_data:
+  minio_data:

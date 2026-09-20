@@ -1,13 +1,13 @@
 import { Request, Response, NextFunction } from 'express';
 import { getRepository } from 'typeorm';
 
-import { User } from 'orm/entities/users/User';
+import { Users } from 'orm/entities/users/users';
 import { CustomError } from 'utils/response/custom-error/CustomError';
 
 export const destroy = async (req: Request, res: Response, next: NextFunction) => {
   const id = req.params.id;
 
-  const userRepository = getRepository(User);
+  const userRepository = getRepository(Users);
   try {
     const user = await userRepository.findOne({ where: { id } });
 
@@ -17,7 +17,7 @@ export const destroy = async (req: Request, res: Response, next: NextFunction) =
     }
     userRepository.delete(id);
 
-    res.customSuccess(200, 'User successfully deleted.', { id: user.id, name: user.name, email: user.email });
+    res.customSuccess(200, 'User successfully deleted.', { id: user.id, name: user.username, email: user.email });
   } catch (err) {
     const customError = new CustomError(400, 'Raw', 'Error', null, err);
     return next(customError);

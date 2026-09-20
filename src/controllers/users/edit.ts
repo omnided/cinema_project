@@ -1,14 +1,14 @@
 import { Request, Response, NextFunction } from 'express';
 import { getRepository } from 'typeorm';
 
-import { User } from 'orm/entities/users/User';
+import { Users } from 'orm/entities/users/users';
 import { CustomError } from 'utils/response/custom-error/CustomError';
 
 export const edit = async (req: Request, res: Response, next: NextFunction) => {
   const id = req.params.id;
   const { username, name } = req.body;
 
-  const userRepository = getRepository(User);
+  const userRepository = getRepository(Users);
   try {
     const user = await userRepository.findOne({ where: { id } });
 
@@ -18,7 +18,6 @@ export const edit = async (req: Request, res: Response, next: NextFunction) => {
     }
 
     user.username = username;
-    user.name = name;
 
     try {
       await userRepository.save(user);

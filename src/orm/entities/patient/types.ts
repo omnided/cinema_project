@@ -1,1 +1,0 @@
-export type PatientSex = 'male' | 'female' | 'other';

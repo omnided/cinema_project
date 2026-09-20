@@ -2,9 +2,11 @@ version: '3'
 
 services:
   be_boilerplate:
-    container_name: 'be_boilerplate'
-    build: .
-    restart: always
-    volumes:
-      - .:/app/
-      - /app/node_modules
+    build:
+      context: .
+      target: build
+    entrypoint: /bin/sh './scripts/be-node-dev.sh'
+    env_file:
+      - .env
+    ports:
+      - '8080:4000'
