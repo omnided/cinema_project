@@ -35,7 +35,7 @@ export class UserService {
   public async register(email: string, username: string, plainPassword: string) {
     const existingUser = await this.userRepository.findOne({ where: { email } });
     if (existingUser) {
-      throw new Error('Пользователь с таким email уже существует');
+      throw new CustomError(400, 'General', 'Пользователь с таким email уже существует');
     }
 
     const newUser = new Users();
@@ -44,11 +44,13 @@ export class UserService {
     newUser.password_hash = await bcrypt.hash(plainPassword, 10);
     newUser.role = 'User' as const;
 
-    await this.userRepository.save(newUser);
-
     const payload: JwtPayload = this.buildJwtPayload(newUser);
     const token = createJwtToken(payload);
     const refresh_token = createRefJwtToken(payload);
+
+    newUser.refresh_token = refresh_token;
+
+    await this.userRepository.save(newUser);
 
     const { password_hash, ...safeUser } = newUser;
 
@@ -59,7 +61,7 @@ export class UserService {
     // 1. Ищем пользователя по email
     const user = await this.userRepository.findOne({ where: { email } });
     if (!user) {
-      throw new Error('Пользователь не найден');
+      throw new CustomError(404, 'General', 'Пользователь не найден');
     }
 
     // 2. Сравниваем введенный пароль с хешем из базы
@@ -67,7 +69,7 @@ export class UserService {
     const isPasswordValid = await bcrypt.compare(plainPasswordFromUser, user.password_hash);
 
     if (!isPasswordValid) {
-      throw new Error('Неверный логин или пароль');
+      throw new CustomError(400, 'General', 'Неверный логин или пароль');
     }
 
     const payload: JwtPayload = this.buildJwtPayload(user);
@@ -75,6 +77,8 @@ export class UserService {
     // 3. Пароль верный! Генерируем JWT (как мы писали ранее)
     const token = createJwtToken(payload);
     const refresh_token = createRefJwtToken(payload);
+
+    await this.userRepository.update(user.id, { refresh_token });
 
     // 4. Возвращаем токен и данные пользователя (без пароля)
     const { password_hash, ...safeUser } = user;

@@ -36,13 +36,13 @@ export class AuthController {
   public async register(req: Request, res: Response, next: NextFunction) {
     try {
       // Добавили name
-      const { name, email, password } = req.body;
+      const { username, email, password } = req.body;
 
-      if (!name || !email || !password) {
+      if (!username || !email || !password) {
         throw new CustomError(400, 'General', 'Пожалуйста, заполните все поля');
       }
 
-      const result = await this.UserService.register(email, name, password);
+      const result = await this.UserService.register(email, username, password);
 
       this.setRefreshTokenCookie(res, result.refresh_token);
 

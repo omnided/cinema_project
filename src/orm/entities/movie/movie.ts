@@ -25,6 +25,12 @@ export class Movie {
   title: string;
 
   @Column({
+    name: 'director',
+    nullable: true,
+  })
+  director?: string;
+
+  @Column({
     name: 'country',
     nullable: true,
   })
